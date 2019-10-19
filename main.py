@@ -1,4 +1,4 @@
-from Equipement import Equipment
+from equipement import Equipment
 
 name, port = input("<name> <port>\n").split()
 port = int(port)
