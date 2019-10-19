@@ -1,10 +1,12 @@
+import datetime
+
 from cryptography import x509
-from cryptography.x509 import Certificate
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.x509 import Certificate
 from cryptography.x509.oid import NameOID
-import datetime
 
 
 class X509Certificate:
@@ -54,3 +56,33 @@ class X509Certificate:
         s += "Public key: {}\n".format(self._certificate.public_key().public_numbers())
         s += "Signature: {}\n".format(self._certificate.signature.hex())
         return s
+
+    @staticmethod
+    def verify(cert: "X509Certificate", public_key):
+        """
+        raises error if the certificate is not valid, else does nothing 
+        """
+        try:
+            public_key.verify(
+                cert._certificate.signature,
+                cert._certificate.tbs_certificate_bytes,
+                padding.PKCS1v15(),
+                cert._certificate.signature_hash_algorithm,
+            )
+        except InvalidSignature as e:
+            raise NotValidCertificate("InvalidSignature")
+
+        today = datetime.datetime.today()
+        if (
+            cert._certificate.not_valid_after < today
+            or cert._certificate.not_valid_before > today
+        ):
+            raise NotValidCertificate("Certificate out of date")
+
+
+class NotValidCertificate(Exception):
+    def __init__(self, value):
+        self.message = message
+
+    def __str__(self):
+        return self.message

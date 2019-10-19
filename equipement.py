@@ -14,6 +14,8 @@ class Equipment:
             self.key_pair.private_key(),
             10,
         )
+        X509Certificate.verify(self.certificate, self.key_pair.public_key())
+        print(self)
 
     def __repr__(self):
         s = "My name is {} and my port is {}\n".format(self.name, self.port)
