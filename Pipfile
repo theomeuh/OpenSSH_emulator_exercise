@@ -10,7 +10,7 @@ black = "==18.9b0"
 cryptography = "==2.7"
 
 [requires]
-python_version = "3.6"
+python_version = "3.7"
 
 [pipenv]
 allow_prereleases = true
