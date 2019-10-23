@@ -36,16 +36,23 @@ class Equipment:
                 while True:
                     data = conn.recv(1024)
                     if not data:
+                        print("No more data")
                         break
-                    print("I received: {}".format(data))
-                    conn.sendall(data)
+
+                    cert_received = X509Certificate.load_from_pem(data)
+                    print("I received:\n{}\n".format(data))
+                    print(cert_received)
+            print("Closing connection")
 
     def client(self, addr: str, port: int):
         print("I play client and want to acces {} on port {}".format(addr, port))
         with socket.socket() as s:
             s.connect((addr, port))
-            s.sendall(b"Hello, world")
-            data = s.recv(1024)
+            payload = self.certificate.cert_pem()
+            print("I send my PEM cert: \n{}".format(payload))
+            s.sendall(payload)
+            print("PEM cert sent")
+        print("Closing connection")
 
     def show_certs(self):
         print("TO-DO afficher les certs")
