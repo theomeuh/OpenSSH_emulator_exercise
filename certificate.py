@@ -5,7 +5,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.x509 import Certificate
+from cryptography.x509 import Certificate, Name
 from cryptography.x509.oid import NameOID
 
 
@@ -76,9 +76,7 @@ class X509Certificate:
         s += "Valid from {} to {}\n".format(
             self._certificate.not_valid_before, self._certificate.not_valid_after
         )
-        s += "Issuer: {}    Subject: {}\n".format(
-            self._certificate.issuer, self._certificate.subject
-        )
+        s += "Issuer: {}    Subject: {}\n".format(self.issuer(), self.subject())
         s += "Public key: {}\n".format(self._certificate.public_key().public_numbers())
         s += "Signature: {}\n".format(self._certificate.signature.hex())
         return s
@@ -111,6 +109,19 @@ class X509Certificate:
         """
         pem = self._certificate.public_bytes(encoding=serialization.Encoding.PEM)
         return pem
+
+    def public_key(self):
+        return self._certificate.public_key()
+
+    def subject(self) -> Name:
+        return self._certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[
+            0
+        ].value
+
+    def issuer(self) -> Name:
+        return self._certificate.issuer.get_attributes_for_oid(NameOID.COMMON_NAME)[
+            0
+        ].value
 
 
 class NotValidCertificate(Exception):
