@@ -24,8 +24,8 @@ class X509Certificate:
         """
 
         self._certificate: Certificate
-        self._private_key = private_key
 
+        # TODO make better constructors
         if cert is None and (
             issuer and subject and public_key and private_key and validity_days
         ):
