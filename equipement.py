@@ -133,8 +133,8 @@ class Equipment:
 
         return cert_selfsigned_received
 
-    def is_known(self, issuer_key):
-        """
+    def is_known(self, issuer_key) -> bool:
+        """ 
         return the cert that match the issuer_key, otherwise None 
         """            
         certs = [

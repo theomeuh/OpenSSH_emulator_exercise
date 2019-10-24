@@ -81,6 +81,12 @@ class X509Certificate:
         s += "Signature: {}\n".format(self._certificate.signature.hex())
         return s
 
+    def __hash__(self):
+        return hash(self._certificate.fingerprint(hashes.SHA256()))
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
     @staticmethod
     def verify(cert: "X509Certificate", public_key):
         """
