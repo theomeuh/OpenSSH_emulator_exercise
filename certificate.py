@@ -1,4 +1,5 @@
 import datetime
+from typing import List
 
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
@@ -87,8 +88,28 @@ class X509Certificate:
     def __eq__(self, other):
         return hash(self) == hash(other)
 
+    def public_key(self):
+        return self._certificate.public_key()
+
+    def subject(self) -> Name:
+        return self._certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[
+            0
+        ].value
+
+    def issuer(self) -> Name:
+        return self._certificate.issuer.get_attributes_for_oid(NameOID.COMMON_NAME)[
+            0
+        ].value
+
+    def cert_pem(self) -> bytes:
+        """
+        output a pem file sendable in a socket
+        """
+        pem = self._certificate.public_bytes(encoding=serialization.Encoding.PEM)
+        return pem
+
     @staticmethod
-    def verify(cert: "X509Certificate", public_key):
+    def verify(cert: "X509Certificate", public_key: rsa.RSAPublicKey):
         """
         raises error if the certificate is not valid, else does nothing 
         """
@@ -109,30 +130,29 @@ class X509Certificate:
         ):
             raise NotValidCertificate("Certificate out of date")
 
-    def cert_pem(self) -> bytes:
+    @staticmethod
+    def verify_chain(first_pubkey: rsa.RSAPublicKey, chain: List["X509Certificate"]):
         """
-        output a pem file sendable in a socket
+        tests with the sequence defined by the list, if the chain of certificate is valid for this very certificate.
+        In particular, it checks if certificates are valid one by one and then if they chain well two by two in sequence
+        
+        A shows to B that they are related if B can verify such a chain with the function
+        [CertB(PubC1), CertC1(PubC2), ..., CertCn(PubCn+1), CertCn+1(PubA)]
         """
-        pem = self._certificate.public_bytes(encoding=serialization.Encoding.PEM)
-        return pem
 
-    def public_key(self):
-        return self._certificate.public_key()
+        if list(chain) == []:
+            raise ValueError("Empty list")
 
-    def subject(self) -> Name:
-        return self._certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[
-            0
-        ].value
-
-    def issuer(self) -> Name:
-        return self._certificate.issuer.get_attributes_for_oid(NameOID.COMMON_NAME)[
-            0
-        ].value
+        pubkey = first_pubkey
+        for cert in chain:
+            X509Certificate.verify(cert, pubkey)
+            pubkey = cert.public_key()
+        print("chain of cert is valid")
 
 
 class NotValidCertificate(Exception):
     def __init__(self, value):
-        self.message = message
+        self.message = value
 
     def __str__(self):
         return self.message
