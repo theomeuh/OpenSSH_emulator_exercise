@@ -6,6 +6,7 @@ from typing import List, Set
 from autority_proof import AutorityProof
 from certificate import NotValidCertificate, X509Certificate
 from key_pair import KeyPair
+from dijsktra import Graph
 
 
 class Equipment:
@@ -44,10 +45,11 @@ class Equipment:
                 print("Connected by", addr)
 
                 cert_received = self.hand_shake(conn)
-                resp = self.is_known(cert_received.public_key())
-                if resp:
+                if self.is_in_CA(cert_received.public_key()):
+                    # if in CA of each other
                     print("I already know you")
                 else:
+                    self.create_cert_chain(cert_received.public_key())
                     while True:
                         resp = input("Connect a new device ? (y/n)")
                         if resp == "y":
@@ -72,10 +74,11 @@ class Equipment:
             print("Connected to", (addr, port))
 
             cert_received = self.hand_shake(conn)
-            resp = self.is_known(cert_received.public_key())
-            if resp:
+            if self.is_in_CA(cert_received.public_key()):
                 print("I already know you")
             else:
+                chain_to_send = self.create_cert_chain(cert_received.public_key())
+
                 while True:
                     resp = input("Connect a new device ? (y/n)")
                     if resp == "y":
@@ -112,7 +115,7 @@ class Equipment:
     def update_CA(self, s: socket.socket, subject, pubkey):
         """
         Equipments don't know each other and they need to exchange their
-        certificate. The auth by DA set failed.
+        certificate. The auth by DA failed.
 
         :pubkey is the pubkey of the other equipment
         """
@@ -176,9 +179,9 @@ class Equipment:
             )
         print("DA update finished")
 
-    def hand_shake(self, s) -> X509Certificate:
+    def hand_shake(self, s: socket.socket) -> X509Certificate:
         """
-        Exchange selfsigned certificate with another equipment
+        Exchanges selfsigned certificate with another equipment and verifies it
         """
         # send selfsigned certificate
         s.sendall(self.certificate.cert_pem())
@@ -186,11 +189,11 @@ class Equipment:
         # received the other's selfsigned certificate
         cert_selfsigned_received = X509Certificate.load_from_pem(s.recv(1024))
         other_cert_pubkey = cert_selfsigned_received.public_key()
-        X509Certificate.verify(cert_selfsigned_received, other_cert_pubkey)
 
+        X509Certificate.verify(cert_selfsigned_received, other_cert_pubkey)
         return cert_selfsigned_received
 
-    def is_known(self, issuer_key) -> bool:
+    def is_in_CA(self, issuer_key) -> bool:
         """ 
         return the cert that match the issuer_key, otherwise None 
         """
@@ -205,3 +208,38 @@ class Equipment:
             cert = certs.pop()
             X509Certificate.verify(cert, issuer_key)
             return True
+
+    def create_cert_chain(self, pubkey_other) -> List[X509Certificate]:
+        graph = Graph([])
+        for autority in self.DA:
+            graph.add_edge(
+                n1=autority.issuer_key.public_numbers(),
+                n2=autority.cert_from_issuer.public_key().public_numbers(),
+                cost=1,
+                both_ends=False,
+            )
+        dq = graph.dijkstra(
+            source=pubkey_other.public_numbers(),
+            dest=self.certificate.public_key().public_numbers(),
+        )
+        if len(dq) <= 1:
+            # no chain
+            return []
+
+        cert_chain: List[X509Certificate] = []
+        n1 = dq.popleft()
+        while len(dq) != 0:
+            n2 = dq.popleft()
+
+            for autority in self.DA:
+                if (
+                    autority.issuer_key.public_numbers() == n1
+                    and autority.cert_from_issuer.public_key().public_numbers() == n2
+                ):
+                    cert_chain.append(autority.cert_from_issuer)
+                    break
+            n1 = n2
+        return cert_chain
+
+    def is_known_by_DA(self, s: socket.socket):
+        raise NotImplementedError

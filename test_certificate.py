@@ -64,7 +64,7 @@ class TestFailCertEqCert:
         assert cert1 != cert2
 
 
-class TestVerif:
+class TestVerify:
     def test_selfsigned_cert(self):
         kp = KeyPair()
         cert = X509Certificate(
@@ -110,7 +110,7 @@ class TestVerif:
 
 class TestVerifyChain:
     """
-    Test is the chaining is well done
+    Test if the chaining is well done
     """
 
     def test_chain_0_element(self):

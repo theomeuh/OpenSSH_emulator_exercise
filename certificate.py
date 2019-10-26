@@ -88,7 +88,7 @@ class X509Certificate:
     def __eq__(self, other):
         return hash(self) == hash(other)
 
-    def public_key(self):
+    def public_key(self) -> rsa.RSAPublicKey:
         return self._certificate.public_key()
 
     def subject(self) -> Name:
@@ -138,6 +138,8 @@ class X509Certificate:
         
         A shows to B that they are related if B can verify such a chain with the function
         [CertB(PubC1), CertC1(PubC2), ..., CertCn(PubCn+1), CertCn+1(PubA)]
+
+        :first_pubkey in B's pubkey
         """
 
         if list(chain) == []:
