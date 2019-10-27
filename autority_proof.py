@@ -12,7 +12,9 @@ class AutorityProof:
         self.cert_from_issuer = cert_from_issuer
 
     def __repr__(self):
-        return "my hash (id): {}".format(hash(self))
+        return "issuer: {}  subject: {}\n".format(
+            self.cert_from_issuer.issuer(), self.cert_from_issuer.subject()
+        )
 
     def __hash__(self):
         return hash(self.cert_from_issuer)
