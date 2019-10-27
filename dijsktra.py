@@ -65,7 +65,10 @@ class Graph:
         return neighbours
 
     def dijkstra(self, source, dest):
-        assert source in self.vertices, "Such source node doesn't exist"
+        path = deque()
+        if source not in self.vertices:
+            return path
+
         distances = {vertex: inf for vertex in self.vertices}
         previous_vertices = {vertex: None for vertex in self.vertices}
         distances[source] = 0
@@ -82,7 +85,7 @@ class Graph:
                     distances[neighbour] = alternative_route
                     previous_vertices[neighbour] = current_vertex
 
-        path, current_vertex = deque(), dest
+        current_vertex = dest
         while previous_vertices[current_vertex] is not None:
             path.appendleft(current_vertex)
             current_vertex = previous_vertices[current_vertex]

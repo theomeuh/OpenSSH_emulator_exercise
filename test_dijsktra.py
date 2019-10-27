@@ -53,5 +53,4 @@ def test_src_not_exist():
             ("e", "f", 9),
         ]
     )
-    with pytest.raises(AssertionError):
-        assert graph.dijkstra("a", "e")
+    assert graph.dijkstra("a", "e") == deque([])
