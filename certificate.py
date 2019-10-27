@@ -83,7 +83,7 @@ class X509Certificate:
         return s
 
     def __hash__(self):
-        return hash(self._certificate.fingerprint(hashes.SHA256()))
+        return hash(self.cert_pem())
 
     def __eq__(self, other):
         return hash(self) == hash(other)
@@ -91,12 +91,12 @@ class X509Certificate:
     def public_key(self) -> rsa.RSAPublicKey:
         return self._certificate.public_key()
 
-    def subject(self) -> Name:
+    def subject(self) -> str:
         return self._certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[
             0
         ].value
 
-    def issuer(self) -> Name:
+    def issuer(self) -> str:
         return self._certificate.issuer.get_attributes_for_oid(NameOID.COMMON_NAME)[
             0
         ].value
