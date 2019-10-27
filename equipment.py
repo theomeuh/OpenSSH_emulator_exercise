@@ -46,10 +46,14 @@ class Equipment:
 
                 cert_received = self.hand_shake(conn)
                 if self.is_in_CA(cert_received.public_key()):
-                    # if in CA of each other
-                    print("I already know you")
+                    print("I already know you (CA)")
+                    self.update_DA(s=conn)
+                elif self.is_known_by_DA(
+                    s=conn, pubkey_other=cert_received.public_key()
+                ):
+                    self.update_DA(s=conn)
+                    print("One of us show that we belong to the same network (DA)")
                 else:
-                    self.create_cert_chain(cert_received.public_key())
                     while True:
                         resp = input("Connect a new device ? (y/n)")
                         if resp == "y":
@@ -75,10 +79,12 @@ class Equipment:
 
             cert_received = self.hand_shake(conn)
             if self.is_in_CA(cert_received.public_key()):
-                print("I already know you")
+                print("I already know you (CA)")
+                self.update_DA(s=conn)
+            elif self.is_known_by_DA(s=conn, pubkey_other=cert_received.public_key()):
+                self.update_DA(s=conn)
+                print("One of us show that we belong to the same network (DA)")
             else:
-                chain_to_send = self.create_cert_chain(cert_received.public_key())
-
                 while True:
                     resp = input("Connect a new device ? (y/n)")
                     if resp == "y":
@@ -140,6 +146,7 @@ class Equipment:
         """
         Send in the socket s, all certificates in personal CA and DA
         """
+        self.DA.update(self.CA)
 
         # json is better with string, not bytes -> encode() / decode()
         CA_set = {}
@@ -151,7 +158,7 @@ class Equipment:
         CA_set = CA_set.encode()
         s.sendall(CA_set)
 
-        CA_received_json = json.loads(s.recv(4096))
+        CA_received_json = json.loads(s.recv(16384))
         for (key, value) in CA_received_json.items():
             self.DA.add(
                 AutorityProof(
@@ -169,7 +176,7 @@ class Equipment:
         DA_set = DA_set.encode()
         s.sendall(DA_set)
 
-        DA_received_json = json.loads(s.recv(4096))
+        DA_received_json = json.loads(s.recv(16384))
         for (key, value) in DA_received_json.items():
             self.DA.add(
                 AutorityProof(
@@ -183,6 +190,8 @@ class Equipment:
         """
         Exchanges selfsigned certificate with another equipment and verifies it
         """
+        self.clean_sets()
+
         # send selfsigned certificate
         s.sendall(self.certificate.cert_pem())
 
@@ -195,7 +204,8 @@ class Equipment:
 
     def is_in_CA(self, issuer_key) -> bool:
         """ 
-        return the cert that match the issuer_key, otherwise None 
+        check if the a issuer_key is a known issuer_key of an AutorityProof is CA 
+        and if the associated cert is good
         """
         certs = [
             autority.cert_from_issuer
@@ -241,5 +251,52 @@ class Equipment:
             n1 = n2
         return cert_chain
 
-    def is_known_by_DA(self, s: socket.socket):
-        raise NotImplementedError
+    def is_known_by_DA(self, s: socket.socket, pubkey_other) -> bool:
+        cert_chain = self.create_cert_chain(pubkey_other)
+
+        set_to_send = []
+        for cert in cert_chain:
+            d = cert.cert_pem().decode()
+            set_to_send.append(d)
+
+        set_to_send = json.dumps(set_to_send)
+        set_to_send = set_to_send.encode()
+        s.sendall(set_to_send)
+
+        cert_chain_received = json.loads(s.recv(16384))
+        cert_chain_received = [
+            X509Certificate.load_from_pem(cert.encode()) for cert in cert_chain_received
+        ]
+
+        print("Cert chain exchanged")
+
+        if len(cert_chain) != 0:
+            print("I CAN reach the other one, no more question on my side")
+            return True
+
+        else:
+            if len(cert_chain_received) == 0:
+                print("NONE of us can reach the other one with a cert chain")
+                return False
+            else:
+                # the other one a cert chain. Is it valid ?
+                try:
+                    X509Certificate.verify_chain(
+                        self.key_pair.public_key(), cert_chain_received
+                    )
+                except (ValueError, NotValidCertificate) as e:
+                    print(
+                        "I cannot generate a cert chain and the cert chain received is NOT valid"
+                    )
+                    return False
+
+        print("I cannot generate a cert chain but the cert chain received IS valid")
+        return True
+
+    def clean_sets(self):
+        """
+        clean CA and DA sets before any communications with other equipment.
+        Out of date certificates are deleted
+        """
+
+        # TODO
