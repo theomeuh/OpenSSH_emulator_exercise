@@ -1,7 +1,9 @@
 from equipment import Equipment
 
-name, port = input("<name> <port>\n").split()
-port = int(port)
+# name, port = input("<name> <port>\n").split()
+# port = int(port)
+name = input("<name>\n")
+port = 8888
 
 equipment = Equipment(name, port)
 
@@ -21,8 +23,9 @@ while True:
     elif s == "s":
         equipment.server()
     elif s == "c":
-        server_name, server_port = input("<server_name> <server_port>\n").split()
-        server_port = int(server_port)
+        # server_name, server_port = input("<server_name> <server_port>\n").split()
+        # server_port = int(server_port)
+        server_name, server_port = "localhost", 8888
         equipment.client(server_name, server_port)
     elif s == "r":
         equipment.show_certs()
