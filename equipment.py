@@ -5,8 +5,10 @@ from typing import List, Set
 
 from autority_proof import AutorityProof
 from certificate import NotValidCertificate, X509Certificate
-from key_pair import KeyPair
 from dijsktra import Graph
+from key_pair import KeyPair
+from socket_tg import (  # use these functions instead of socket lib ones
+    recv_all, recv_json, sendall)
 
 
 class Equipment:
@@ -43,32 +45,8 @@ class Equipment:
             conn, addr = s.accept()  # conn is a socket connected to addr
             with conn:
                 print("Connected by", addr)
+                self.a_la_pgp_process(conn=conn)
 
-                cert_received = self.hand_shake(conn)
-                if self.is_in_CA(cert_received.public_key()):
-                    print("I already know you (CA)")
-                    self.update_DA(s=conn)
-                elif self.is_known_by_DA(
-                    s=conn, pubkey_other=cert_received.public_key()
-                ):
-                    self.update_DA(s=conn)
-                    print("One of us show that we belong to the same network (DA)")
-                else:
-                    while True:
-                        resp = input("Connect a new device ? (y/n)")
-                        if resp == "y":
-                            self.update_CA(
-                                s=conn,
-                                subject=cert_received.issuer(),
-                                pubkey=cert_received.public_key(),
-                            )
-                            self.update_DA(s=conn)
-                            break
-                        elif resp == "n":
-                            print("Nothing happened")
-                            break
-                        else:
-                            print("Invalid answer")
         print("Closing connection")
 
     def client(self, addr: str, port: int):
@@ -76,30 +54,8 @@ class Equipment:
         with socket.socket() as conn:
             conn.connect((addr, port))
             print("Connected to", (addr, port))
+            self.a_la_pgp_process(conn=conn)
 
-            cert_received = self.hand_shake(conn)
-            if self.is_in_CA(cert_received.public_key()):
-                print("I already know you (CA)")
-                self.update_DA(s=conn)
-            elif self.is_known_by_DA(s=conn, pubkey_other=cert_received.public_key()):
-                self.update_DA(s=conn)
-                print("One of us show that we belong to the same network (DA)")
-            else:
-                while True:
-                    resp = input("Connect a new device ? (y/n)")
-                    if resp == "y":
-                        self.update_CA(
-                            s=conn,
-                            subject=cert_received.issuer(),
-                            pubkey=cert_received.public_key(),
-                        )
-                        self.update_DA(s=conn)
-                        break
-                    elif resp == "n":
-                        print("Nothing happened")
-                        break
-                    else:
-                        print("Invalid answer")
         print("Closing connection")
 
     def show_certs(self):
@@ -133,10 +89,10 @@ class Equipment:
             private_key=self.key_pair.private_key(),
             validity_days=10,
         )
-        s.sendall(cert_to_sent.cert_pem())
+        sendall(s, cert_to_sent.cert_pem())
 
         # received its certificate on our public key
-        cert_received = X509Certificate.load_from_pem(s.recv(1024))
+        cert_received = X509Certificate.load_from_pem(recv_all(s))
         X509Certificate.verify(cert_received, pubkey)
 
         self.CA.add(AutorityProof(pubkey, cert_received))
@@ -148,42 +104,24 @@ class Equipment:
         """
         self.DA.update(self.CA)
 
-        # json is better with string, not bytes -> encode() / decode()
-        CA_set = {}
-        for autority in self.CA:
-            k = KeyPair.pubkey_pem(autority.issuer_key).decode()
-            v = autority.cert_from_issuer.cert_pem().decode()
-            CA_set[k] = v
-        CA_set = json.dumps(CA_set)
-        CA_set = CA_set.encode()
-        s.sendall(CA_set)
+        for autorities in (self.CA, self.DA):
+            # json is better with string, not bytes -> encode() / decode()
+            _set = {}
+            for autority in autorities:
+                k = KeyPair.pubkey_pem(autority.issuer_key).decode()
+                v = autority.cert_from_issuer.cert_pem().decode()
+                _set[k] = v
 
-        CA_received_json = json.loads(s.recv(16384))
-        for (key, value) in CA_received_json.items():
-            self.DA.add(
-                AutorityProof(
-                    issuer_key=KeyPair.load_pub_from_pem(key.encode()),
-                    cert_from_issuer=X509Certificate.load_from_pem(value.encode()),
+            sendall(s, json.dumps(_set).encode())
+
+            _received_json = recv_json(s)
+            for (key, value) in _received_json.items():
+                self.DA.add(
+                    AutorityProof(
+                        issuer_key=KeyPair.load_pub_from_pem(key.encode()),
+                        cert_from_issuer=X509Certificate.load_from_pem(value.encode()),
+                    )
                 )
-            )
-
-        DA_set = {}
-        for autority in self.DA:
-            k = KeyPair.pubkey_pem(autority.issuer_key).decode()
-            v = autority.cert_from_issuer.cert_pem().decode()
-            DA_set[k] = v
-        DA_set = json.dumps(DA_set)
-        DA_set = DA_set.encode()
-        s.sendall(DA_set)
-
-        DA_received_json = json.loads(s.recv(16384))
-        for (key, value) in DA_received_json.items():
-            self.DA.add(
-                AutorityProof(
-                    issuer_key=KeyPair.load_pub_from_pem(key.encode()),
-                    cert_from_issuer=X509Certificate.load_from_pem(value.encode()),
-                )
-            )
         print("DA update finished")
 
     def hand_shake(self, s: socket.socket) -> X509Certificate:
@@ -193,10 +131,10 @@ class Equipment:
         self.clean_sets()
 
         # send selfsigned certificate
-        s.sendall(self.certificate.cert_pem())
+        sendall(s, self.certificate.cert_pem())
 
         # received the other's selfsigned certificate
-        cert_selfsigned_received = X509Certificate.load_from_pem(s.recv(1024))
+        cert_selfsigned_received = X509Certificate.load_from_pem(recv_all(s))
         other_cert_pubkey = cert_selfsigned_received.public_key()
 
         X509Certificate.verify(cert_selfsigned_received, other_cert_pubkey)
@@ -259,11 +197,9 @@ class Equipment:
             d = cert.cert_pem().decode()
             set_to_send.append(d)
 
-        set_to_send = json.dumps(set_to_send)
-        set_to_send = set_to_send.encode()
-        s.sendall(set_to_send)
+        sendall(s, json.dumps(set_to_send).encode())
 
-        cert_chain_received = json.loads(s.recv(16384))
+        cert_chain_received = recv_json(s)
         cert_chain_received = [
             X509Certificate.load_from_pem(cert.encode()) for cert in cert_chain_received
         ]
@@ -292,6 +228,36 @@ class Equipment:
 
         print("I cannot generate a cert chain but the cert chain received IS valid")
         return True
+
+    def a_la_pgp_process(self, conn: socket.socket):
+        """
+        Define the action taken by both server and equipment.
+        They do exactly the same
+        """
+
+        cert_received = self.hand_shake(conn)
+        if self.is_in_CA(cert_received.public_key()):
+            print("I already know you (CA)")
+            self.update_DA(s=conn)
+        elif self.is_known_by_DA(s=conn, pubkey_other=cert_received.public_key()):
+            self.update_DA(s=conn)
+            print("One of us show that we belong to the same network (DA)")
+        else:
+            while True:
+                resp = input("Connect a new device ? (y/n)")
+                if resp == "y":
+                    self.update_CA(
+                        s=conn,
+                        subject=cert_received.issuer(),
+                        pubkey=cert_received.public_key(),
+                    )
+                    self.update_DA(s=conn)
+                    break
+                elif resp == "n":
+                    print("Nothing happened")
+                    break
+                else:
+                    print("Invalid answer")
 
     def clean_sets(self):
         """
