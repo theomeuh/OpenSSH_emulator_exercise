@@ -109,9 +109,9 @@ class X509Certificate:
         return pem
 
     @staticmethod
-    def verify(cert: "X509Certificate", public_key: rsa.RSAPublicKey):
+    def verify(cert: "X509Certificate", public_key: rsa.RSAPublicKey) -> bool:
         """
-        raises error if the certificate is not valid, else does nothing 
+        return weither the certificate is valid or not
         """
         try:
             public_key.verify(
@@ -121,17 +121,22 @@ class X509Certificate:
                 cert._certificate.signature_hash_algorithm,
             )
         except InvalidSignature as e:
-            raise NotValidCertificate("InvalidSignature")
+            print("InvalidSignature")
+            return False
 
         today = datetime.datetime.today()
         if (
             cert._certificate.not_valid_after < today
             or cert._certificate.not_valid_before > today
         ):
-            raise NotValidCertificate("Certificate out of date")
+            print("Certificate out of date")
+            return False
+        return True
 
     @staticmethod
-    def verify_chain(first_pubkey: rsa.RSAPublicKey, chain: List["X509Certificate"]):
+    def verify_chain(
+        first_pubkey: rsa.RSAPublicKey, chain: List["X509Certificate"]
+    ) -> bool:
         """
         tests with the sequence defined by the list, if the chain of certificate is valid for this very certificate.
         In particular, it checks if certificates are valid one by one and then if they chain well two by two in sequence
@@ -147,9 +152,11 @@ class X509Certificate:
 
         pubkey = first_pubkey
         for cert in chain:
-            X509Certificate.verify(cert, pubkey)
+            if not X509Certificate.verify(cert, pubkey):
+                return False
             pubkey = cert.public_key()
         print("chain of cert is valid")
+        return True
 
 
 class NotValidCertificate(Exception):

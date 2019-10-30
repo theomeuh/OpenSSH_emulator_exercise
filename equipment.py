@@ -4,11 +4,14 @@ from collections import namedtuple
 from typing import List, Set
 
 from autority_proof import AutorityProof
-from certificate import NotValidCertificate, X509Certificate
+from certificate import X509Certificate, NotValidCertificate
 from dijsktra import Graph
 from key_pair import KeyPair
 from socket_tg import (  # use these functions instead of socket lib ones
-    recv_all, recv_json, sendall)
+    recv_all,
+    recv_json,
+    sendall,
+)
 
 
 class Equipment:
@@ -25,7 +28,11 @@ class Equipment:
             self.key_pair.private_key(),
             10,
         )
-        X509Certificate.verify(self.certificate, self.key_pair.public_key())
+        print(
+            "Is my cert valid ? {} ".format(
+                X509Certificate.verify(self.certificate, self.key_pair.public_key())
+            )
+        )
         print(self)
 
     def __repr__(self):
@@ -93,7 +100,9 @@ class Equipment:
 
         # received its certificate on our public key
         cert_received = X509Certificate.load_from_pem(recv_all(s))
-        X509Certificate.verify(cert_received, pubkey)
+        if not X509Certificate.verify(cert_received, pubkey):
+            print("update_CA FAILS cause the cert received is not valid")
+            return
 
         self.CA.add(AutorityProof(pubkey, cert_received))
         print("CA update finished")
@@ -137,7 +146,8 @@ class Equipment:
         cert_selfsigned_received = X509Certificate.load_from_pem(recv_all(s))
         other_cert_pubkey = cert_selfsigned_received.public_key()
 
-        X509Certificate.verify(cert_selfsigned_received, other_cert_pubkey)
+        if not X509Certificate.verify(cert_selfsigned_received, other_cert_pubkey):
+            raise NotValidCertificate("hand_shake FAILS cause of invalid certificate")
         return cert_selfsigned_received
 
     def is_in_CA(self, issuer_key) -> bool:
@@ -154,7 +164,8 @@ class Equipment:
             return False
         else:
             cert = certs.pop()
-            X509Certificate.verify(cert, issuer_key)
+            if not X509Certificate.verify(cert, issuer_key):
+                return False
             return True
 
     def create_cert_chain(self, pubkey_other) -> List[X509Certificate]:
@@ -210,23 +221,20 @@ class Equipment:
             print("I CAN reach the other one, no more question on my side")
             return True
 
-        else:
-            if len(cert_chain_received) == 0:
-                print("NONE of us can reach the other one with a cert chain")
-                return False
-            else:
-                # the other one a cert chain. Is it valid ?
-                try:
-                    X509Certificate.verify_chain(
-                        self.key_pair.public_key(), cert_chain_received
-                    )
-                except (ValueError, NotValidCertificate) as e:
-                    print(
-                        "I cannot generate a cert chain and the cert chain received is NOT valid"
-                    )
-                    return False
+        elif len(cert_chain_received) == 0:
+            print("NONE of us can reach the other one with a cert chain")
+            return False
 
-        print("I cannot generate a cert chain but the cert chain received IS valid")
+        elif not X509Certificate.verify_chain(
+            self.key_pair.public_key(), cert_chain_received
+        ):  # the other one a cert chain. Is it valid ?
+
+            print(
+                "I cannot generate a cert chain and the cert chain received is NOT valid"
+            )
+            return False
+
+        print("I cannot generate a cert chain BUT the cert chain received IS valid")
         return True
 
     def a_la_pgp_process(self, conn: socket.socket):

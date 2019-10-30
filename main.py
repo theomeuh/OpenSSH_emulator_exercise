@@ -1,4 +1,5 @@
 from equipment import Equipment
+from certificate import NotValidCertificate
 
 # name, port = input("<name> <port>\n").split()
 # port = int(port)
@@ -32,9 +33,16 @@ while True:
             equipment.show_certs()
         else:
             print("Unknown command")
+    except NotValidCertificate:
+        print(
+            "client or server fail the hand_shake because of an invalid certificate. Try again"
+        )
+
+    except KeyboardInterrupt:
+        print("\nThe user interrupted the process. You can quit by pressing q")
 
     except Exception as e:
-        # If something happens, does not crash the programm, just resume
+        # If something else happens, does not crash the programm, just resume
         print("##" * 10 + " AN ERROR OCCURED (see log below) " + "##" * 10)
         print(e)
         print("##" * 10 + " AN ERROR OCCURED (see log above) " + "##" * 10)

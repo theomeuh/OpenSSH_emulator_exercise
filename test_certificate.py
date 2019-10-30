@@ -102,8 +102,7 @@ class TestVerify:
             private_key=kp_root.private_key(),
             validity_days=10,
         )
-        with pytest.raises(NotValidCertificate):
-            X509Certificate.verify(cert, pubkey_to_signed)
+        assert not X509Certificate.verify(cert, pubkey_to_signed)
 
     # TODO: change the validity date and check good output
 
