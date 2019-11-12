@@ -18,6 +18,7 @@ while True:
             print("s => Insertion en tant que server")
             print("c => Insertion en tant que client")
             print("r => Liste des équipements sur le réseau domestique")
+            print("certs => Liste des certificats connus")
         elif s == "q":
             break
         elif s == "i":
@@ -30,6 +31,8 @@ while True:
             server_name, server_port = "localhost", 8888
             equipment.client(server_name, server_port)
         elif s == "r":
+            equipment.show_certs_couple()
+        elif s == "certs":
             equipment.show_certs()
         else:
             print("Unknown command")

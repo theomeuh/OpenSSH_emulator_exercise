@@ -66,20 +66,14 @@ class Equipment:
         print("Closing connection")
 
     def show_certs(self):
-        CA_certs = {
-            AutorityProof(
-                autority.issuer_key.public_numbers(), autority.cert_from_issuer
-            )
-            for autority in self.CA
-        }
-        DA_certs = {
-            AutorityProof(
-                autority.issuer_key.public_numbers(), autority.cert_from_issuer
-            )
-            for autority in self.DA
-        }
+        CA_certs = {autority.cert_from_issuer for autority in self.CA}
+        DA_certs = {autority.cert_from_issuer for autority in self.DA}
         print("#" * 8 + " CA " + "#" * 8 + "\n{}".format(CA_certs))
         print("#" * 8 + " DA " + "#" * 8 + "\n{}".format(DA_certs))
+
+    def show_certs_couple(self):
+        print("#" * 8 + " CA " + "#" * 8 + "\n{}".format(self.CA))
+        print("#" * 8 + " DA " + "#" * 8 + "\n{}".format(self.DA))
 
     def update_CA(self, s: socket.socket, subject, pubkey):
         """
@@ -160,7 +154,7 @@ class Equipment:
             for autority in self.CA
             if autority.issuer_key.public_numbers() == issuer_key.public_numbers()
         ]
-        if len(certs) != 1:
+        if len(certs) == 0:
             return False
         else:
             cert = certs.pop()
