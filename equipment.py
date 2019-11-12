@@ -248,6 +248,11 @@ class Equipment:
             print("I already know you (CA)")
             self.update_DA(s=conn)
         elif self.is_known_by_DA(s=conn, pubkey_other=cert_received.public_key()):
+            self.update_CA(
+                s=conn,
+                subject=cert_received.issuer(),
+                pubkey=cert_received.public_key(),
+            )
             self.update_DA(s=conn)
             print("One of us show that we belong to the same network (DA)")
         else:
@@ -273,4 +278,11 @@ class Equipment:
         Out of date certificates are deleted
         """
 
-        # TODO
+        for autority_set in (self.CA, self.DA):
+            autority_set = {
+                autority
+                for autority in autority_set
+                if X509Certificate.verify(
+                    autority.cert_from_issuer, autority.issuer_key
+                )
+            }
