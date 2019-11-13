@@ -135,13 +135,15 @@ class X509Certificate:
 
     @staticmethod
     def verify_chain(
-        first_pubkey: rsa.RSAPublicKey, chain: List["X509Certificate"]
+        first_pubkey: rsa.RSAPublicKey,
+        chain: List["X509Certificate"],
+        last_pubkey: rsa.RSAPublicKey,
     ) -> bool:
         """
         tests with the sequence defined by the list, if the chain of certificate is valid for this very certificate.
         In particular, it checks if certificates are valid one by one and then if they chain well two by two in sequence
         
-        A shows to B that they are related if B can verify such a chain with the function
+        A proves to B that they are related if B can verify such a chain with the function
         [CertB(PubC1), CertC1(PubC2), ..., CertCn(PubCn+1), CertCn+1(PubA)]
 
         :first_pubkey in B's pubkey
@@ -149,6 +151,9 @@ class X509Certificate:
 
         if list(chain) == []:
             raise ValueError("Empty list")
+
+        if chain[-1].public_key().public_numbers() != last_pubkey.public_numbers():
+            raise ValueError("The chain does not end with the right certificate")
 
         pubkey = first_pubkey
         for cert in chain:

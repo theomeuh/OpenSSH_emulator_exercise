@@ -126,15 +126,8 @@ class TestVerifyChain:
         """
         chain = []
         kp = KeyPair()
-        cert = X509Certificate(
-            issuer="issuer",
-            subject="subject",
-            public_key=kp.public_key(),
-            private_key=kp.private_key(),
-            validity_days=10,
-        )
         with pytest.raises(ValueError):
-            X509Certificate.verify_chain(kp.public_key(), chain)
+            X509Certificate.verify_chain(kp.public_key(), chain, kp.public_key())
 
     def test_chain_1_element(self):
         """"
@@ -150,7 +143,7 @@ class TestVerifyChain:
             validity_days=10,
         )
         chain.append(cert)
-        X509Certificate.verify_chain(kp.public_key(), chain)
+        X509Certificate.verify_chain(kp.public_key(), chain, kp.public_key())
 
     @pytest.mark.parametrize("cert_count", [2, 5, 10])
     def test_chain_X_elements(self, cert_count):
@@ -174,4 +167,4 @@ class TestVerifyChain:
             privkey = kp_next.private_key()
             chain.append(cert)
 
-        X509Certificate.verify_chain(kp_root.public_key(), chain)
+        X509Certificate.verify_chain(kp_root.public_key(), chain, pubkey)

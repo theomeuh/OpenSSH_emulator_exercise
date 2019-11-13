@@ -220,7 +220,7 @@ class Equipment:
             return False
 
         elif not X509Certificate.verify_chain(
-            self.key_pair.public_key(), cert_chain_received
+            self.key_pair.public_key(), cert_chain_received, pubkey_other
         ):  # the other one a cert chain. Is it valid ?
 
             print(
