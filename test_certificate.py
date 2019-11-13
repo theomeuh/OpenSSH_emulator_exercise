@@ -6,6 +6,10 @@ from key_pair import KeyPair
 
 
 class TestCert2Cert:
+    """
+    Test if the conversion to byte keep the essence of the cert
+    """
+
     def test_cert_to_pem_to_cert(self):
         kp = KeyPair()
         cert1 = X509Certificate(
@@ -20,6 +24,10 @@ class TestCert2Cert:
 
 
 class TestFailCertEqCert:
+    """
+    Test the unequality of two certs
+    """
+
     def test_certEqcert_kp(self):
         kp1 = KeyPair()
         cert1 = X509Certificate(
