@@ -9,7 +9,7 @@ mypy = "==0.740"
 rope = "*"
 
 [packages]
-cryptography = "==2.7"
+cryptography = "==3.2"
 pytest = "==5.2.1"
 
 [requires]
